@@ -12,13 +12,13 @@ Google Sheetsに保存された株式ポートフォリオを分析し、AIに�
   - 日次損益の算出
   - リスク評価（変動性、集中度）
   - 分散状況の分析
-- **AI投資アドバイス**: Gemini APIを通じた売買戦略の提案
+- **AI投資アドバイス**: Gemini API（google-generativeai Pythonライブラリ）を通じた売買戦略の提案
 
 ### 🔹 技術スタック
 - **Python 3.x**
 - **Google Sheets API** (gspread)
 - **Yahoo Finance API** (yfinance)
-- **Gemini API** (MCP経由)
+- **Gemini API** (google-generativeai Pythonライブラリ)
 - **pandas** (データ処理)
 
 ## セットアップ
@@ -43,9 +43,9 @@ SPREADSHEET_ID=your_google_spreadsheet_id
 GOOGLE_API_KEY=your_gemini_api_key
 
 # オプション設定
-WORKSHEET_NAME=Sheet1
-STOCK_SYMBOL_COLUMN=symbol
-QUANTITY_COLUMN=quantity
+WORKSHEET_NAME=シート1
+STOCK_SYMBOL_COLUMN=証券コード
+QUANTITY_COLUMN=保有株数
 ```
 
 ### 3. Google Sheets APIの準備
@@ -60,12 +60,11 @@ QUANTITY_COLUMN=quantity
 #### 3.2 スプレッドシートの準備
 以下の形式でスプレッドシートを作成：
 
-| symbol | quantity |
-|--------|----------|
-| AAPL   | 10       |
-| GOOGL  | 5        |
-| MSFT   | 8        |
-| TSLA   | 3        |
+| 証券コード | 銘柄名       | 保有株数 | 取得価格 |
+|----------|------------|--------|--------|
+| 7203     | トヨタ自動車 | 100    | 2500   |
+| 6758     | ソニーグループ | 50     | 3500   |
+| 4519     | 中外製薬     | 200    | 6800   |
 
 **重要**: サービスアカウントのメールアドレスにスプレッドシートの編集権限を付与してください。
 
@@ -195,12 +194,12 @@ XXXXの株価取得エラー: No data found
 - 株式銘柄コードが正しいか確認
 - 市場の営業時間外やデータ遅延の可能性
 
-**4. MCP接続エラー**
+**4. Gemini API接続エラー**
 ```
-MCPサーバー開始エラー: command not found: npx
+Gemini API初期化エラー: APIキーが不正です
 ```
-- Node.jsとnpmがインストールされているか確認
-- Gemini APIキーが正しく設定されているか確認
+- `.env`のGOOGLE_API_KEYが正しいか確認
+- google-generativeaiライブラリがインストールされているか確認
 
 ### デバッグ方法
 

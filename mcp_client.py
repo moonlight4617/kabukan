@@ -1,86 +1,31 @@
 import json
-import subprocess
-import asyncio
+import google.generativeai as genai
 from typing import Dict, Any, Optional
 import config
 
 class MCPClient:
     def __init__(self):
-        self.server_process = None
         self.connected = False
+        self.model = None
     
     def start_server(self):
-        """MCPサーバーを開始"""
+        """Gemini APIクライアントを初期化"""
         try:
-            # mcp.jsonの設定を使用してサーバーを起動
-            cmd = [
-                "npx",
-                "@google-ai/generativelanguage-mcp-server"
-            ]
-            
-            env = {
-                "GOOGLE_API_KEY": config.GOOGLE_API_KEY
-            }
-            
-            # サーバープロセスを開始
-            self.server_process = subprocess.Popen(
-                cmd,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            
+            # Gemini APIの設定
+            genai.configure(api_key=config.GOOGLE_API_KEY)
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
             self.connected = True
-            print("MCPサーバーを開始しました")
+            print("Gemini APIクライアントを初期化しました")
             
         except Exception as e:
-            print(f"MCPサーバー開始エラー: {e}")
+            print(f"Gemini API初期化エラー: {e}")
             self.connected = False
     
     def stop_server(self):
-        """MCPサーバーを停止"""
-        if self.server_process:
-            self.server_process.terminate()
-            self.server_process.wait()
-            self.connected = False
-            print("MCPサーバーを停止しました")
-    
-    def send_request(self, method: str, params: Dict[str, Any]) -> Optional[Dict]:
-        """
-        MCPサーバーにリクエストを送信
-        Args:
-            method: MCPメソッド
-            params: パラメータ
-        Returns:
-            Dict: レスポンス
-        """
-        if not self.connected:
-            print("MCPサーバーに接続されていません")
-            return None
-        
-        try:
-            request = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": method,
-                "params": params
-            }
-            
-            request_json = json.dumps(request)
-            
-            # プロセスの標準入力に送信
-            self.server_process.stdin.write(request_json.encode() + b'\n')
-            self.server_process.stdin.flush()
-            
-            # レスポンスを読み取り
-            response_line = self.server_process.stdout.readline()
-            if response_line:
-                response = json.loads(response_line.decode())
-                return response
-            
-        except Exception as e:
-            print(f"MCPリクエストエラー: {e}")
-            return None
+        """クライアントを停止"""
+        self.connected = False
+        self.model = None
+        print("Gemini APIクライアントを停止しました")
     
     def get_investment_advice(self, portfolio_data: Dict) -> Optional[str]:
         """
@@ -90,8 +35,8 @@ class MCPClient:
         Returns:
             str: 投資アドバイス
         """
-        if not self.connected:
-            print("MCPサーバーに接続されていません")
+        if not self.connected or not self.model:
+            print("Gemini APIクライアントに接続されていません")
             return None
         
         try:
@@ -114,14 +59,12 @@ class MCPClient:
             """
             
             # Gemini APIを通じてアドバイスを取得
-            response = self.send_request("generateContent", {
-                "contents": [{"parts": [{"text": prompt}]}]
-            })
+            response = self.model.generate_content(prompt)
             
-            if response and "result" in response:
-                return response["result"]["candidates"][0]["content"]["parts"][0]["text"]
+            if response and response.text:
+                return response.text
             else:
-                print("Gemini APIからの応答が不正です")
+                print("Gemini APIからの応答が空です")
                 return None
                 
         except Exception as e:

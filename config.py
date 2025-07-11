@@ -16,5 +16,5 @@ GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
 # その他の設定
 WORKSHEET_NAME = 'Sheet1'  # デフォルトのワークシート名
-STOCK_SYMBOL_COLUMN = 'symbol'  # 株式銘柄のカラム名
-QUANTITY_COLUMN = 'quantity'  # 保有数量のカラム名
+STOCK_SYMBOL_COLUMN = '証券コード'  # 株式銘柄のカラム名
+QUANTITY_COLUMN = '保有株数'  # 保有数量のカラム名

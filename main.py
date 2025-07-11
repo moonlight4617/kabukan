@@ -7,10 +7,13 @@
 """
 
 import sys
+from dotenv import load_dotenv
 import os
 from data_fetcher import DataFetcher
 from analyzer import PortfolioAnalyzer
 from mcp_client import MCPClient
+
+load_dotenv()
 
 def main():
     """メイン処理"""

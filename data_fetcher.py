@@ -13,6 +13,11 @@ class DataFetcher:
     def _setup_sheets_client(self):
         """Google Sheetsクライアントの設定"""
         try:
+            if not config.GOOGLE_SHEETS_CREDENTIALS_PATH:
+                print("Google Sheets認証情報のパスが設定されていません")
+                self.sheets_client = None
+                return
+                
             creds = Credentials.from_service_account_file(
                 config.GOOGLE_SHEETS_CREDENTIALS_PATH,
                 scopes=config.GOOGLE_SHEETS_SCOPES
@@ -35,16 +40,42 @@ class DataFetcher:
         
         try:
             sheet = self.sheets_client.open_by_key(config.SPREADSHEET_ID)
-            worksheet = sheet.worksheet(config.WORKSHEET_NAME)
+            
+            # 利用可能なワークシート名を確認
+            worksheets = sheet.worksheets()
+            worksheet_names = [ws.title for ws in worksheets]
+            print(f"利用可能なワークシート: {worksheet_names}")
+            
+            # 最初のワークシートを使用
+            if worksheets:
+                worksheet = worksheets[0]
+                print(f"使用するワークシート: {worksheet.title}")
+            else:
+                print("ワークシートが見つかりません")
+                return []
             
             # データを取得
             data = worksheet.get_all_records()
+            
+            # デバッグ: スプレッドシートの内容を確認
+            print(f"スプレッドシートのデータ数: {len(data)}")
+            if data:
+                print(f"最初の行のカラム: {list(data[0].keys())}")
+                print(f"最初の行の内容: {data[0]}")
+            
             portfolio = []
             
             for row in data:
                 if config.STOCK_SYMBOL_COLUMN in row:
+                    # 日本株の場合、証券コードを文字列に変換し、.Tを付加
+                    symbol_raw = row[config.STOCK_SYMBOL_COLUMN]
+                    if isinstance(symbol_raw, (int, float)):
+                        symbol = f"{int(symbol_raw)}.T"  # 日本株の場合
+                    else:
+                        symbol = str(symbol_raw)
+                    
                     stock_info = {
-                        'symbol': row[config.STOCK_SYMBOL_COLUMN],
+                        'symbol': symbol,
                         'quantity': row.get(config.QUANTITY_COLUMN, 0)
                     }
                     portfolio.append(stock_info)
