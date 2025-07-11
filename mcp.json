@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "gemini": {
+      "command": "npx",
+      "args": ["@google-ai/generativelanguage-mcp-server"],
+      "env": {
+        "GOOGLE_API_KEY": "GEMINI-API-KEY"
+      }
+    }
+  }
+}
