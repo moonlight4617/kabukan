@@ -3,8 +3,8 @@
 credentials_config/*.json
 
 # デプロイ用のLambdaパッケージ
-lambda_package/
-lambda_deploy.zip
+layer_package*/
+lambda*/
 
 # その他
 __pycache__/
