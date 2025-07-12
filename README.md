@@ -13,12 +13,17 @@ Google Sheetsに保存された株式ポートフォリオを分析し、AIに�
   - リスク評価（変動性、集中度）
   - 分散状況の分析
 - **AI投資アドバイス**: Gemini API（google-generativeai Pythonライブラリ）を通じた売買戦略の提案
+- **Slack統合**: 
+  - 投資アドバイスの自動Slack通知
+  - Slack BotによるAI投資相談機能
 
 ### 🔹 技術スタック
 - **Python 3.x**
 - **Google Sheets API** (gspread)
 - **Yahoo Finance API** (yfinance)
 - **Gemini API** (google-generativeai Pythonライブラリ)
+- **Slack API** (slack-sdk)
+- **Flask** (Webhook サーバー)
 - **pandas** (データ処理)
 
 ## セットアップ
@@ -41,6 +46,11 @@ SPREADSHEET_ID=your_google_spreadsheet_id
 
 # Gemini API設定
 GOOGLE_API_KEY=your_gemini_api_key
+
+# Slack API設定
+SLACK_BOT_TOKEN=xoxb-your-bot-token-here
+SLACK_SIGNING_SECRET=your-signing-secret-here
+SLACK_CHANNEL=#investment-advice
 
 # オプション設定
 WORKSHEET_NAME=シート1
@@ -73,7 +83,92 @@ QUANTITY_COLUMN=保有株数
 2. APIキーを生成
 3. `.env`ファイルに設定
 
+### 5. Slack APIの設定
+1. [Slack API](https://api.slack.com/apps)にアクセス
+2. 新しいアプリを作成
+3. 「OAuth & Permissions」でBotトークンを取得
+4. 「Event Subscriptions」でWebhook URLを設定
+5. 必要な権限を付与：
+   - `chat:write`
+   - `channels:read`
+   - `im:read`
+   - `mpim:read`
+   - `groups:read`
+6. `.env`ファイルに設定
+
 ## 使用方法
+
+### 🚀 開発環境（ngrok使用）
+
+#### クイックスタート
+```bash
+# 1. 基本的なポートフォリオ分析実行
+python main_dev.py
+
+# 2. Slack Botサーバー起動（別ターミナル）
+python slack_bot_dev.py
+
+# 3. ngrok起動（さらに別ターミナル）
+./start_ngrok.sh
+```
+
+#### 詳細手順
+1. **依存関係インストール**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **環境変数設定**: `.env`ファイルを作成
+   ```env
+   # 必須
+   GOOGLE_SHEETS_CREDENTIALS_PATH=./credentials_config/credentials.json
+   SPREADSHEET_ID=your_spreadsheet_id
+   GOOGLE_API_KEY=your_gemini_api_key
+   
+   # Slack連携用（開発時）
+   SLACK_BOT_TOKEN=xoxb-your-bot-token
+   SLACK_SIGNING_SECRET=your-signing-secret
+   SLACK_CHANNEL=#investment-advice
+   ```
+
+3. **Slack App作成**:
+   - [Slack API](https://api.slack.com/apps)で新アプリ作成
+   - Bot Token取得（`chat:write`権限付与）
+   - Event Subscriptions有効化
+
+4. **ngrok起動**:
+   ```bash
+   ./start_ngrok.sh
+   # または
+   ngrok http 5000
+   ```
+
+5. **Slack AppにWebhook URL設定**:
+   - Event Subscriptions → Request URL: `https://xxxx.ngrok.io/slack/events`
+   - Bot Events: `message.channels`, `message.im`
+
+6. **Slack Botサーバー起動**:
+   ```bash
+   python slack_bot_dev.py
+   ```
+
+7. **テスト**:
+   - SlackでBot宛てにメンション: `@bot トヨタ株について教えて`
+   - DMで直接質問も可能
+
+### 📱 本番環境（AWS Lambda + API Gateway）
+
+*本番環境のデプロイ方法は別途ドキュメント化予定*
+
+### Slack Botサーバーの起動
+```bash
+python slack_bot.py
+```
+
+### Slack Botの使用方法
+1. 設定したチャンネルで投資アドバイスを受信
+2. Bot宛てに質問をメンション（例：`@投資bot トヨタ株について教えて`）
+3. DMで直接質問も可能
 
 ### 基本的な実行
 ```bash
@@ -154,13 +249,18 @@ python tests/test_sheets.py
 
 ```
 claude-code/
-├── main.py                 # メインアプリケーション
+├── main.py                 # メインアプリケーション（本番用）
+├── main_dev.py            # メインアプリケーション（開発用）
 ├── config.py              # 設定管理
 ├── data_fetcher.py        # データ取得（Google Sheets、株価）
 ├── analyzer.py            # ポートフォリオ分析
-├── mcp_client.py          # MCP/Gemini API連携
-├── requirements.txt       # 依存関係
-├── mcp.json              # MCP設定
+├── mcp_client.py          # Gemini API連携
+├── slack_client.py        # Slack API連携
+├── slack_bot.py           # Slack Bot Webhook サーバー（本番用）
+├── slack_bot_dev.py       # Slack Bot Webhook サーバー（開発用）
+├── start_ngrok.sh         # ngrok起動スクリプト
+├── dev_start.sh           # 開発環境統合起動スクリプト
+├── requirements.txt       # 依存関係（slack-sdk、flask含む）
 ├── .env.example          # 環境変数テンプレート
 ├── CLAUDE.md             # Claude Code用ガイド
 ├── README.md             # このファイル

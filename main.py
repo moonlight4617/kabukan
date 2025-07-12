@@ -12,6 +12,7 @@ import os
 from data_fetcher import DataFetcher
 from analyzer import PortfolioAnalyzer
 from mcp_client import MCPClient
+from slack_client import SlackClient
 
 load_dotenv()
 
@@ -60,6 +61,7 @@ def main():
         
         # Gemini APIによる投資アドバイスの取得
         print("\n5. AI投資アドバイスを取得中...")
+        advice = None
         try:
             with MCPClient() as mcp_client:
                 advice = mcp_client.get_investment_advice(portfolio_data)
@@ -73,6 +75,25 @@ def main():
         except Exception as e:
             print(f"MCP接続エラー: {e}")
             print("注意: Gemini APIへの接続に失敗しました。基本分析のみ実行されました。")
+        
+        # Slack通知の送信
+        print("\n6. Slack通知を送信中...")
+        try:
+            slack_client = SlackClient()
+            if slack_client.client:
+                # 投資アドバイスとレポートをSlackに送信
+                success = slack_client.send_investment_advice(portfolio_data, report)
+                if success:
+                    print("Slack通知送信成功")
+                    if advice:
+                        # AI投資アドバイスも送信
+                        slack_client.send_simple_message(f"🤖 *AI投資アドバイス*\n```{advice}```")
+                else:
+                    print("Slack通知送信失敗")
+            else:
+                print("Slack通知をスキップ（設定未完了）")
+        except Exception as e:
+            print(f"Slack通知エラー: {e}")
         
         print("\n=== 処理完了 ===")
         return 0

@@ -1,7 +1,10 @@
 # 環境変数とキーファイル
 .env
-config/credentials.json
-config/*.json
+credentials_config/*.json
+
+# デプロイ用のLambdaパッケージ
+lambda_package/
+lambda_deploy.zip
 
 # その他
 __pycache__/
