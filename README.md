@@ -356,6 +356,165 @@ Gemini API初期化エラー: APIキーが不正です
 - APIキーや認証情報は適切に管理し、公開リポジトリにコミットしないでください
 - 株価データには遅延が生じる場合があります
 
+## デプロイメントスクリプト
+
+AWS Lambdaへのデプロイを効率化するため、以下のシェルスクリプトを提供しています：
+
+### 🚀 デプロイ用シェルスクリプト
+
+#### 1. `deploy_layers.sh` - Lambda Layersデプロイ
+```bash
+# 全てのLayerをデプロイ
+./deploy_layers.sh all
+
+# 個別にデプロイ
+./deploy_layers.sh scraping    # スクレイピングレイヤー
+./deploy_layers.sh web        # Web・ネットワークレイヤー
+./deploy_layers.sh google     # Google API・生成AIレイヤー
+```
+
+**機能:**
+- 3つのLambda Layer（scraping, web, google）を個別または一括デプロイ
+- 依存関係の自動インストールとZIPファイル作成
+- AWS Lambda Layer作成とバージョン管理
+- デプロイ結果の確認とARN表示
+
+#### 2. `deploy_lambda.sh` - Lambda関数デプロイ
+```bash
+# 全てのLambda関数をデプロイ
+./deploy_lambda.sh all
+
+# 個別にデプロイ
+./deploy_lambda.sh main       # メインのkabukan関数
+./deploy_lambda.sh slack      # Slack通知関数
+```
+
+**機能:**
+- メインLambda関数（kabukan）のデプロイ
+- Slack通知Lambda関数のデプロイ
+- Lambda Layersの自動アタッチ
+- 環境変数の設定
+- 手動テスト用コマンドの表示
+
+#### 3. `setup_eventbridge_daily_monthly.sh` - EventBridgeスケジュール設定
+```bash
+# 日次・月次の両方を設定
+./setup_eventbridge_daily_monthly.sh all
+
+# 個別に設定
+./setup_eventbridge_daily_monthly.sh daily    # 日次実行のみ
+./setup_eventbridge_daily_monthly.sh monthly  # 月次実行のみ
+```
+
+**機能:**
+- 日次実行: 平日 9:00 JST（売買タイミングアドバイス）
+- 月次実行: 毎月1日 9:00 JST（ポートフォリオ分析）
+- Lambda実行権限の自動追加
+- EventBridgeルールとターゲットの設定
+- 手動テスト用コマンドの提供
+
+#### 4. `setup_sns_topics.sh` - SNSトピック作成・管理
+```bash
+# 全てのSNSトピックを作成
+./setup_sns_topics.sh all
+
+# 個別に作成
+./setup_sns_topics.sh error       # エラー通知トピックのみ
+# ./setup_sns_topics.sh info        # 情報通知トピックのみ 現在は使ってない
+
+# Email通知も追加
+# EMAIL_ADDRESS=your@email.com ./setup_sns_topics.sh all　 現在は使ってない
+```
+
+**機能:**
+- エラー通知用SNSトピック（kabukan-error-alerts）の作成
+- 情報通知用SNSトピック（kabukan-info-notifications）の作成
+- Slack Lambda関数の自動サブスクリプション設定
+- Email通知の設定（オプション）
+- SNSトピック属性とサブスクリプションの管理
+
+#### 5. `setup_cloudwatch_alarms.sh` - CloudWatchアラーム設定
+```bash
+# 全てのアラームを設定
+./setup_cloudwatch_alarms.sh all
+
+# 個別に設定
+./setup_cloudwatch_alarms.sh main        # メインLambda監視のみ
+./setup_cloudwatch_alarms.sh slack       # Slack Lambda監視のみ
+./setup_cloudwatch_alarms.sh eventbridge # EventBridge監視のみ
+
+# アラームテスト実行
+./setup_cloudwatch_alarms.sh test
+```
+
+**機能:**
+- Lambda関数のエラー数、タイムアウト、スロットル監視
+- EventBridge実行失敗の監視
+- 異常な実行回数の検知
+- SNS経由でのSlack通知設定
+- アラームテスト機能
+
+### 📋 完全デプロイ手順
+
+#### ステップ1: 基盤設定
+1. **SNSトピックを作成:**
+   ```bash
+   ./setup_sns_topics.sh error
+   ```
+
+2. **Lambda Layersをデプロイ:**
+   ```bash
+   ./deploy_layers.sh all
+   ```
+
+3. **Lambda関数をデプロイ:**
+   ```bash
+   ./deploy_lambda.sh all
+   ```
+
+#### ステップ2: スケジュールと監視設定
+4. **EventBridgeスケジュールを設定:**
+   ```bash
+   ./setup_eventbridge_daily_monthly.sh all
+   ```
+
+5. **CloudWatchアラームを設定:**
+   ```bash
+   ./setup_cloudwatch_alarms.sh all
+   ```
+
+#### ステップ3: テストと確認
+6. **アラームテスト実行:**
+   ```bash
+   ./setup_cloudwatch_alarms.sh test
+   ```
+
+7. **手動Lambda実行テスト:**
+   ```bash
+   # 日次実行テスト
+   aws lambda invoke --function-name kabukan --payload '{"execution_type":"daily"}' response.json --region ap-northeast-1
+   
+   # 月次実行テスト
+   aws lambda invoke --function-name kabukan --payload '{"execution_type":"monthly"}' response.json --region ap-northeast-1
+   ```
+
+#### クイックデプロイ（全自動）
+```bash
+# 全てを一括実行
+./setup_sns_topics.sh error && \
+./deploy_layers.sh all && \
+./deploy_lambda.sh all && \
+./setup_eventbridge_daily_monthly.sh all && \
+./setup_cloudwatch_alarms.sh all
+```
+
+### ⚠️ 注意事項
+
+- AWS CLIが設定済みであることを確認してください
+- 適切なIAM権限（Lambda、EventBridge、S3）が必要です
+- 環境変数（GOOGLE_API_KEY、SLACK_BOT_TOKEN等）を事前に設定してください
+- スクリプト実行前に`chmod +x *.sh`で実行権限を付与してください
+
 ## サポート
 
 質問やバグ報告は、GitHubのIssuesページでお願いします。
