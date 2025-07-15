@@ -104,7 +104,11 @@ class DataFetcher:
                 price_data = self._fetch_stock_price_from_yahoo_api(symbol)
                 if price_data:
                     stock_data[symbol] = price_data
-                    print(f"{symbol}: ${price_data['current_price']:.2f} ({price_data['change_percent']:+.2f}%)")
+                    currency = price_data.get('currency', 'USD')
+                    if currency == 'JPY':
+                        print(f"{symbol}: ¥{price_data['current_price']:,.0f} ({price_data['change_percent']:+.2f}%)")
+                    else:
+                        print(f"{symbol}: ${price_data['current_price']:.2f} ({price_data['change_percent']:+.2f}%)")
                 else:
                     print(f"{symbol}: 価格データが取得できませんでした")
                     
@@ -197,9 +201,46 @@ class DataFetcher:
             print(f"予期しないエラー ({symbol}): {e}")
             return None
     
+    def get_usd_jpy_rate(self) -> float:
+        """
+        USD/JPY為替レートを取得
+        Returns:
+            float: USD/JPY為替レート
+        """
+        try:
+            url = "https://query1.finance.yahoo.com/v8/finance/chart/USDJPY=X"
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            if data['chart']['error'] is not None:
+                print(f"為替レート取得エラー: {data['chart']['error']}")
+                return 150.0  # デフォルト値
+            
+            result = data['chart']['result'][0]
+            close_prices = result['indicators']['quote'][0]['close']
+            close_prices = [price for price in close_prices if price is not None]
+            
+            if close_prices:
+                usd_jpy_rate = close_prices[-1]
+                print(f"USD/JPY為替レート: {usd_jpy_rate:.2f}")
+                return usd_jpy_rate
+            else:
+                print("為替レートデータが取得できませんでした")
+                return 150.0
+                
+        except Exception as e:
+            print(f"為替レート取得エラー: {e}")
+            return 150.0  # デフォルト値
+
     def get_portfolio_with_prices(self) -> Dict:
         """
-        ポートフォリオと株価情報を統合して取得
+        ポートフォリオと株価情報を統合して取得（円換算機能付き）
         Returns:
             Dict: ポートフォリオと株価情報
         """
@@ -210,22 +251,42 @@ class DataFetcher:
         symbols = [stock['symbol'] for stock in portfolio]
         stock_prices = self.get_stock_prices(symbols)
         
+        # USD/JPY為替レートを取得
+        usd_jpy_rate = self.get_usd_jpy_rate()
+        
         # ポートフォリオ情報と株価情報を統合
         portfolio_with_prices = {
             'portfolio': portfolio,
             'stock_prices': stock_prices,
-            'total_value': 0
+            'usd_jpy_rate': usd_jpy_rate,
+            'total_value_usd': 0,
+            'total_value_jpy': 0
         }
         
-        # 総資産価値を計算
-        total_value = 0
+        # 総資産価値を計算（USD建てとJPY建てを分けて計算）
+        total_value_usd = 0
+        total_value_jpy = 0
+        
         for stock in portfolio:
             symbol = stock['symbol']
             quantity = stock['quantity']
             if symbol in stock_prices:
-                current_price = stock_prices[symbol]['current_price']
-                total_value += current_price * quantity
+                price_info = stock_prices[symbol]
+                current_price = price_info['current_price']
+                currency = price_info.get('currency', 'USD')
+                
+                holding_value = current_price * quantity
+                
+                if currency == 'JPY':
+                    total_value_jpy += holding_value
+                else:  # USD or other currencies treated as USD
+                    total_value_usd += holding_value
         
-        portfolio_with_prices['total_value'] = total_value
+        # 米国株を円換算して合計
+        total_value_jpy_converted = total_value_jpy + (total_value_usd * usd_jpy_rate)
+        
+        portfolio_with_prices['total_value_usd'] = total_value_usd
+        portfolio_with_prices['total_value_jpy'] = total_value_jpy
+        portfolio_with_prices['total_value_jpy_converted'] = total_value_jpy_converted
         
         return portfolio_with_prices

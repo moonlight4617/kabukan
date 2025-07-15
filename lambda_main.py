@@ -27,9 +27,13 @@ def lambda_handler(event, context):
         dict: 実行結果
     """
     
-    print("=== AWS Lambda - 投資アドバイス自動通知 ===")
+    # 実行タイプを判別（日次 or 月次）
+    execution_type = event.get('execution_type', 'daily')  # デフォルトは日次
+    
+    print(f"=== AWS Lambda - 投資アドバイス自動通知 ({execution_type}) ===")
     print(f"Event: {json.dumps(event)}")
     print(f"Request ID: {context.aws_request_id}")
+    print(f"実行タイプ: {execution_type}")
     
     # 環境変数チェック
     required_env_vars = [
@@ -93,7 +97,7 @@ def lambda_handler(event, context):
         advice = None
         try:
             with MCPClient() as mcp_client:
-                advice = mcp_client.get_investment_advice(portfolio_data)
+                advice = mcp_client.get_investment_advice(portfolio_data, execution_type)
                 
                 if advice:
                     print("✅ AI投資アドバイス取得完了")
@@ -106,7 +110,7 @@ def lambda_handler(event, context):
         
         # Slack通知の送信
         print("\n6️⃣ Slack通知を送信中...")
-        notification_result = send_slack_notification(portfolio_data, report, advice)
+        notification_result = send_slack_notification(portfolio_data, report, advice, execution_type)
         
         # 結果のまとめ
         result = {
@@ -178,7 +182,7 @@ def prepare_google_credentials() -> str:
     
     return credentials_path
 
-def send_slack_notification(portfolio_data: list, report: str, advice: str = None) -> Dict[str, Any]:
+def send_slack_notification(portfolio_data: list, report: str, advice: str = None, execution_type: str = 'daily') -> Dict[str, Any]:
     """
     Slack通知を送信
     
@@ -186,6 +190,7 @@ def send_slack_notification(portfolio_data: list, report: str, advice: str = Non
         portfolio_data: ポートフォリオデータ
         report: 分析レポート
         advice: AI投資アドバイス（オプション）
+        execution_type: 実行タイプ（daily/monthly）
     
     Returns:
         dict: 送信結果
@@ -199,7 +204,7 @@ def send_slack_notification(portfolio_data: list, report: str, advice: str = Non
             }
         
         # 基本レポートの送信
-        report_success = slack_client.send_investment_advice(portfolio_data, report)
+        report_success = slack_client.send_investment_advice(portfolio_data, report, execution_type)
         
         # AI投資アドバイスの送信（ある場合）
         advice_success = True

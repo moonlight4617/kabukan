@@ -13,7 +13,7 @@ class MCPClient:
         try:
             # Gemini APIの設定
             genai.configure(api_key=config.GOOGLE_API_KEY)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
             self.connected = True
             print("Gemini APIクライアントを初期化しました")
             
@@ -27,11 +27,12 @@ class MCPClient:
         self.model = None
         print("Gemini APIクライアントを停止しました")
     
-    def get_investment_advice(self, portfolio_data: Dict) -> Optional[str]:
+    def get_investment_advice(self, portfolio_data: Dict, execution_type: str = 'daily') -> Optional[str]:
         """
         Gemini APIを使用して投資アドバイスを取得
         Args:
             portfolio_data: ポートフォリオデータ
+            execution_type: 実行タイプ（daily/monthly）
         Returns:
             str: 投資アドバイス
         """
@@ -43,20 +44,49 @@ class MCPClient:
             # ポートフォリオ情報を文字列に変換
             portfolio_summary = self._format_portfolio_for_analysis(portfolio_data)
             
-            # Geminiに送信するプロンプト
-            prompt = f"""
-            以下の株式ポートフォリオの分析と今後の売買戦略についてアドバイスをお願いします：
+            # 実行タイプに応じてプロンプトを変更
+            if execution_type == 'daily':
+                prompt = f"""
+                以下の株式ポートフォリオの日次売買タイミング分析をお願いします：
 
-            {portfolio_summary}
+                {portfolio_summary}
 
-            以下の点について分析してください：
-            1. 現在のポートフォリオの評価
-            2. リスク分析
-            3. 今後の売買戦略の提案
-            4. 注意すべき市場動向
+                【日次分析の焦点】
+                以下の点について分析してください：
+                1. 保有中の各銘柄の短期的な売買タイミング
+                2. 買い増しするべき銘柄とその理由
+                3. 売却を検討すべき銘柄とその理由
+                4. 今日の市場動向と明日への影響
+                5. 短期的なリスク要因
 
-            日本語で回答してください。
-            """
+                【回答形式】
+                - 各銘柄について「買い増し」「売却」「保有継続」のいずれかの推奨アクションを明記
+                - 具体的な売買タイミングの根拠を提示
+                - 短期的な価格変動要因を重視した分析
+
+                日本語で回答してください。
+                """
+            else:  # monthly
+                prompt = f"""
+                以下の株式ポートフォリオの月次戦略分析をお願いします：
+
+                {portfolio_summary}
+
+                【月次分析の焦点】
+                以下の点について分析してください：
+                1. 現在のポートフォリオの総合評価
+                2. 長期的なリスク分析
+                3. ポートフォリオ全体の最適化提案
+                4. 新規投資候補の提案
+                5. 中長期的な市場見通し
+
+                【回答形式】
+                - ポートフォリオ全体の戦略的な見直し提案
+                - 長期投資の観点からの評価
+                - 分散投資の観点からの改善提案
+
+                日本語で回答してください。
+                """
             
             # Gemini APIを通じてアドバイスを取得
             response = self.model.generate_content(prompt)
@@ -73,7 +103,7 @@ class MCPClient:
     
     def _format_portfolio_for_analysis(self, portfolio_data: Dict) -> str:
         """
-        ポートフォリオデータを分析用の文字列に変換
+        ポートフォリオデータを分析用の文字列に変換（円換算対応）
         Args:
             portfolio_data: ポートフォリオデータ
         Returns:
@@ -84,9 +114,13 @@ class MCPClient:
         
         portfolio = portfolio_data.get('portfolio', [])
         stock_prices = portfolio_data.get('stock_prices', {})
-        total_value = portfolio_data.get('total_value', 0)
+        total_value_jpy = portfolio_data.get('total_value_jpy_converted', 0)
+        total_value_usd = portfolio_data.get('total_value_usd', 0)
+        usd_jpy_rate = portfolio_data.get('usd_jpy_rate', 150.0)
         
-        summary = f"総資産価値: ${total_value:,.2f}\n\n"
+        summary = f"総資産価値: ¥{total_value_jpy:,.0f}\n"
+        summary += f"　（米国株部分: ${total_value_usd:,.2f}）\n"
+        summary += f"USD/JPY為替レート: {usd_jpy_rate:.2f}\n\n"
         summary += "保有銘柄一覧:\n"
         
         for stock in portfolio:
@@ -98,12 +132,22 @@ class MCPClient:
                 current_price = price_info['current_price']
                 change_percent = price_info['change_percent']
                 company_name = price_info['company_name']
+                currency = price_info.get('currency', 'USD')
                 
-                holding_value = current_price * quantity
+                holding_value_original = current_price * quantity
+                
+                if currency == 'JPY':
+                    holding_value_jpy = holding_value_original
+                    price_display = f"¥{current_price:,.0f}"
+                    value_display = f"¥{holding_value_jpy:,.0f}"
+                else:
+                    holding_value_jpy = holding_value_original * usd_jpy_rate
+                    price_display = f"${current_price:.2f} (¥{current_price * usd_jpy_rate:,.0f})"
+                    value_display = f"¥{holding_value_jpy:,.0f} (${holding_value_original:,.2f})"
                 
                 summary += f"- {company_name} ({symbol}): {quantity}株\n"
-                summary += f"  現在価格: ${current_price:.2f} ({change_percent:+.2f}%)\n"
-                summary += f"  保有価値: ${holding_value:,.2f}\n\n"
+                summary += f"  現在価格: {price_display} ({change_percent:+.2f}%)\n"
+                summary += f"  保有価値: {value_display}\n\n"
         
         return summary
     

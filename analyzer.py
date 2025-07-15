@@ -7,7 +7,7 @@ class PortfolioAnalyzer:
     
     def analyze_portfolio(self, portfolio_data: Dict) -> Dict:
         """
-        ポートフォリオの基本分析を実行
+        ポートフォリオの基本分析を実行（円換算対応）
         Args:
             portfolio_data: ポートフォリオデータ
         Returns:
@@ -18,10 +18,14 @@ class PortfolioAnalyzer:
         
         portfolio = portfolio_data.get('portfolio', [])
         stock_prices = portfolio_data.get('stock_prices', {})
-        total_value = portfolio_data.get('total_value', 0)
+        total_value_jpy = portfolio_data.get('total_value_jpy_converted', 0)
+        total_value_usd = portfolio_data.get('total_value_usd', 0)
+        usd_jpy_rate = portfolio_data.get('usd_jpy_rate', 150.0)
         
         analysis = {
-            'total_portfolio_value': total_value,
+            'total_portfolio_value_jpy': total_value_jpy,
+            'total_portfolio_value_usd': total_value_usd,
+            'usd_jpy_rate': usd_jpy_rate,
             'number_of_holdings': len(portfolio),
             'holdings_analysis': [],
             'portfolio_distribution': {},
@@ -39,19 +43,32 @@ class PortfolioAnalyzer:
                 current_price = price_info['current_price']
                 change_percent = price_info['change_percent']
                 company_name = price_info['company_name']
+                currency = price_info.get('currency', 'USD')
                 
-                holding_value = current_price * quantity
-                portfolio_weight = (holding_value / total_value) * 100 if total_value > 0 else 0
+                holding_value_original = current_price * quantity
+                
+                # 円換算の保有価値を計算
+                if currency == 'JPY':
+                    holding_value_jpy = holding_value_original
+                    holding_value_usd = holding_value_original / usd_jpy_rate
+                else:  # USD or other currencies
+                    holding_value_usd = holding_value_original
+                    holding_value_jpy = holding_value_original * usd_jpy_rate
+                
+                portfolio_weight = (holding_value_jpy / total_value_jpy) * 100 if total_value_jpy > 0 else 0
                 
                 holding_analysis = {
                     'symbol': symbol,
                     'company_name': company_name,
                     'quantity': quantity,
                     'current_price': current_price,
-                    'holding_value': holding_value,
+                    'currency': currency,
+                    'holding_value_original': holding_value_original,
+                    'holding_value_jpy': holding_value_jpy,
+                    'holding_value_usd': holding_value_usd,
                     'portfolio_weight': portfolio_weight,
                     'daily_change_percent': change_percent,
-                    'daily_pnl': holding_value * (change_percent / 100)
+                    'daily_pnl_jpy': holding_value_jpy * (change_percent / 100)
                 }
                 
                 analysis['holdings_analysis'].append(holding_analysis)
@@ -112,9 +129,9 @@ class PortfolioAnalyzer:
         if not holdings:
             return {}
         
-        # 日次損益の計算
-        daily_pnl = sum([holding['daily_pnl'] for holding in holdings])
-        total_value = sum([holding['holding_value'] for holding in holdings])
+        # 日次損益の計算（円建て）
+        daily_pnl = sum([holding['daily_pnl_jpy'] for holding in holdings])
+        total_value = sum([holding['holding_value_jpy'] for holding in holdings])
         
         # 加重平均リターン
         weighted_return = 0
@@ -189,12 +206,8 @@ class PortfolioAnalyzer:
 === ポートフォリオ分析レポート ===
 生成日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-【概要】
-総資産価値: ${analysis['total_portfolio_value']:,.2f}
-保有銘柄数: {analysis['number_of_holdings']}銘柄
-
 【パフォーマンス】
-日次損益: ${analysis['performance_summary'].get('daily_pnl', 0):,.2f}
+日次損益: ¥{analysis['performance_summary'].get('daily_pnl', 0):,.0f}
 日次リターン: {analysis['performance_summary'].get('daily_return_percent', 0):+.2f}%
 勝ち銘柄: {analysis['performance_summary'].get('winners', 0)}銘柄
 負け銘柄: {analysis['performance_summary'].get('losers', 0)}銘柄
@@ -214,6 +227,11 @@ class PortfolioAnalyzer:
         
         top_holdings = analysis['portfolio_distribution'].get('top_holdings', [])
         for i, holding in enumerate(top_holdings, 1):
-            report += f"{i}. {holding['company_name']} ({holding['symbol']}): {holding['portfolio_weight']:.1f}%\n"
+            currency = holding.get('currency', 'USD')
+            if currency == 'JPY':
+                value_display = f"¥{holding['holding_value_jpy']:,.0f}"
+            else:
+                value_display = f"¥{holding['holding_value_jpy']:,.0f} (${holding['holding_value_usd']:,.2f})"
+            report += f"{i}. {holding['company_name']} ({holding['symbol']}): {holding['portfolio_weight']:.1f}% - {value_display}\n"
         
         return report
