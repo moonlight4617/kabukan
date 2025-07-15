@@ -1,6 +1,5 @@
 import gspread
 import requests
-import pandas as pd
 from google.oauth2.service_account import Credentials
 from typing import List, Dict, Optional
 import config
