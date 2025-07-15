@@ -1,0 +1,11 @@
+# Lambda本体用 requirements
+# 用途: Lambda関数と一緒にデプロイする軽量ライブラリ
+# 重いライブラリはLayerに含まれる
+# 使用方法: Lambda ZIPファイルに含める
+
+gspread==6.2.1
+google-auth==2.22.0
+google-auth-oauthlib==1.0.0
+slack_sdk==3.36.0
+boto3==1.35.90
+requests==2.32.3

@@ -1,0 +1,10 @@
+# ローカル開発環境用 requirements
+# 用途: ローカルでの開発・テスト実行
+# 使用方法: pip install -r requirements_local_dev.txt
+
+Flask==3.1.1
+gspread==6.2.1
+pandas==2.3.1
+python-dotenv==1.1.1
+slack_sdk==3.36.0
+yfinance==0.2.65

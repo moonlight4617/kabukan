@@ -1,0 +1,17 @@
+# Lambda Layer: Google API・生成AI系
+# 用途: Google APIs（Sheets, Gemini AI）
+# Lambda Layer: kabukan-layer-google-fixed:1相当
+# 重要: protobuf==5.29.5でバージョン統一済み
+
+protobuf==5.29.5
+grpcio>=1.33.2
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-ai-generativelanguage
+google-generativeai==0.8.5
+pydantic
+pydantic-core
+typing-extensions
+websockets>=13.0

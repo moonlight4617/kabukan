@@ -318,6 +318,25 @@ Gemini API初期化エラー: APIキーが不正です
    python tests/test_portfolio.py --basic
    ```
 
+### ローカルからlambdaを起動させて実行
+1. 日次実行:
+   ```bash
+   aws lambda invoke \
+     --function-name kabukan \
+     --payload '{"execution_type": "daily"}' \
+     --cli-binary-format raw-in-base64-out \
+     /tmp/daily_response.json
+   ```
+
+2. 月次実行:
+   ```bash
+   aws lambda invoke \
+     --function-name kabukan \
+     --payload '{"execution_type": "monthly"}' \
+     --cli-binary-format raw-in-base64-out \
+     /tmp/monthly_response.json
+   ```
+
 ## 貢献
 
 1. このリポジトリをフォーク

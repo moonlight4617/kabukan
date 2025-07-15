@@ -1,0 +1,9 @@
+# Lambda Layer: 基本データ処理
+# 用途: データ分析・処理（yfinance等で使用）
+# Lambda Layer: kabukan-layer-scraping:1相当
+
+pandas==2.3.1
+numpy>=1.22.4
+python-dateutil>=2.8.2
+pytz>=2022.5
+tzdata>=2022.7

@@ -1,0 +1,7 @@
+# Lambda Layer: スクレイピング
+# 用途: Web scraping・データ処理補助
+# Lambda Layer: kabukan-layer-scraping:1相当
+
+beautifulsoup4>=4.9.3
+tqdm>=4.66.4
+frozendict>=2.4.2

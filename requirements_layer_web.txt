@@ -1,0 +1,10 @@
+# Lambda Layer: Web・ネットワーク系
+# 用途: Web接続・ネットワーク処理
+# Lambda Layer: kabukan-layer-web:1相当
+
+cffi>=1.12.0
+pycparser
+platformdirs>=2.0.0
+peewee>=3.16.2
+curl_cffi>=0.7
+websockets>=13.0
