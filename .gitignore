@@ -10,3 +10,4 @@ lambda*/
 __pycache__/
 *.pyc
 venv/
+aws/*

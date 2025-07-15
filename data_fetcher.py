@@ -1,9 +1,11 @@
 import gspread
-import yfinance as yf
+import requests
 import pandas as pd
 from google.oauth2.service_account import Credentials
 from typing import List, Dict, Optional
 import config
+import json
+from datetime import datetime, timedelta
 
 class DataFetcher:
     def __init__(self):
@@ -89,7 +91,7 @@ class DataFetcher:
     
     def get_stock_prices(self, symbols: List[str]) -> Dict[str, Dict]:
         """
-        株価情報を取得
+        株価情報をYahoo Finance APIから直接取得
         Args:
             symbols: 株式銘柄のリスト
         Returns:
@@ -99,26 +101,11 @@ class DataFetcher:
         
         for symbol in symbols:
             try:
-                stock = yf.Ticker(symbol)
-                info = stock.info
-                hist = stock.history(period="5d")
-                
-                if not hist.empty:
-                    current_price = hist['Close'].iloc[-1]
-                    previous_price = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
-                    change = current_price - previous_price
-                    change_percent = (change / previous_price) * 100 if previous_price != 0 else 0
-                    
-                    stock_data[symbol] = {
-                        'current_price': current_price,
-                        'previous_price': previous_price,
-                        'change': change,
-                        'change_percent': change_percent,
-                        'company_name': info.get('longName', symbol),
-                        'currency': info.get('currency', 'USD')
-                    }
-                    
-                    print(f"{symbol}: ${current_price:.2f} ({change_percent:+.2f}%)")
+                # Yahoo Finance APIから株価データを取得
+                price_data = self._fetch_stock_price_from_yahoo_api(symbol)
+                if price_data:
+                    stock_data[symbol] = price_data
+                    print(f"{symbol}: ${price_data['current_price']:.2f} ({price_data['change_percent']:+.2f}%)")
                 else:
                     print(f"{symbol}: 価格データが取得できませんでした")
                     
@@ -127,6 +114,89 @@ class DataFetcher:
                 continue
         
         return stock_data
+    
+    def _fetch_stock_price_from_yahoo_api(self, symbol: str) -> Optional[Dict]:
+        """
+        Yahoo Finance APIから単一銘柄の株価を取得
+        Args:
+            symbol: 株式銘柄コード
+        Returns:
+            Dict: 株価情報
+        """
+        try:
+            # Yahoo Finance Chart APIを使用
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            # 5日間のデータを取得
+            params = {
+                'range': '5d',
+                'interval': '1d'
+            }
+            
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            if data['chart']['error'] is not None:
+                print(f"Yahoo API エラー: {data['chart']['error']}")
+                return None
+                
+            result = data['chart']['result'][0]
+            
+            if not result['timestamp'] or not result['indicators']['quote'][0]['close']:
+                return None
+            
+            # 終値データを取得
+            close_prices = result['indicators']['quote'][0]['close']
+            # NoneやNaN値を除去
+            close_prices = [price for price in close_prices if price is not None]
+            
+            if len(close_prices) < 1:
+                return None
+            
+            current_price = close_prices[-1]
+            previous_price = close_prices[-2] if len(close_prices) > 1 else current_price
+            
+            change = current_price - previous_price
+            change_percent = (change / previous_price) * 100 if previous_price != 0 else 0
+            
+            # 会社名を取得
+            company_name = symbol
+            currency = 'USD'
+            
+            # メタデータから会社名と通貨を取得
+            meta = result.get('meta', {})
+            if 'longName' in meta:
+                company_name = meta['longName']
+            elif 'shortName' in meta:
+                company_name = meta['shortName']
+            
+            if 'currency' in meta:
+                currency = meta['currency']
+            
+            return {
+                'current_price': current_price,
+                'previous_price': previous_price,
+                'change': change,
+                'change_percent': change_percent,
+                'company_name': company_name,
+                'currency': currency
+            }
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Yahoo Finance API リクエストエラー ({symbol}): {e}")
+            return None
+        except (KeyError, IndexError, TypeError) as e:
+            print(f"Yahoo Finance API レスポンス解析エラー ({symbol}): {e}")
+            return None
+        except Exception as e:
+            print(f"予期しないエラー ({symbol}): {e}")
+            return None
     
     def get_portfolio_with_prices(self) -> Dict:
         """
